@@ -15,14 +15,18 @@ const config = {
   startupDelay: process.env.STARTUP_DELAY ?
     parseInt(process.env.STARTUP_DELAY) : 16000,
   inactiveShutdownSecs: process.env.INACTIVE_TIMEOUT ?
-    parseInt(process.env.INACTIVE_TIMEOUT) : 900000
+    parseInt(process.env.INACTIVE_TIMEOUT) : 900000,
+  rcon: {
+      password: process.env.RCON_PASSWORD,
+      port: process.env.RCON_PORT ? parseInt(process.env.RCON_PORT) : null
+  }
 };
 
 let inactivityTimeout = null;
 
 //proxy begins in paused state
 const proxy = new PausingProxy(config.forwardServer, config.clientTimeout);
-const instance = new EC2Client(config.instanceId, config.startupDelay);
+const instance = new EC2Client(config);
 
 const scheduleShutdown = async function() {
   try {
@@ -47,6 +51,10 @@ const ensureAvailable = async function() {
       inactivityTimeout = null;
     }
     await instance.start();
+    if (config.forwardServer.host == null) {
+      config.forwardServer.host = instance.instanceIP;
+      proxy.serverConfig = config.forwardServer;
+    }
     proxy.resume();
   } catch (err) {
     console.error("Failed to ensure server availability", err);
